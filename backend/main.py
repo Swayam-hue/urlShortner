@@ -2,10 +2,8 @@ from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-import mysql.connector
 import hashlib as hash
 import psycopg2
-import os
 
 mydb = psycopg2.connect(
     host="aws-1-ap-northeast-1.pooler.supabase.com",
