@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>URL Shortener</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            width: 600px;
+            margin: 50px auto;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>URL Shortener</h1>
+
+    <form action="/hash" method="post">
+
+        <input
+            type="text"
+            name="longURL"
+            placeholder="Enter URL"
+            required
+        >
+
+        <button type="submit">
+            Shorten
+        </button>
+
+    </form>
+
+    {% if short_url %}
+        <div class="result">
+            <p>Short URL:</p>
+            <a href="{{ short_url }}">
+                {{ short_url }}
+            </a>
+        </div>
+    {% endif %}
+
+</body>
+</html>
