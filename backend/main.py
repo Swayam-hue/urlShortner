@@ -69,7 +69,7 @@ def shortURL(request : Request,
         request=request,
         name="index.html",
         context={
-             "short_url": f"http://127.0.0.1:8000/{result[0]}"
+             "short_url": f"https://urlshortner.fastapicloud.dev/{result[0]}"
         }
 )
 
@@ -82,7 +82,7 @@ def shortURL(request : Request,
     request=request,
     name="index.html",
     context={
-        "short_url": f"http://127.0.0.1:8000/{shortCode}"
+        "short_url": f"https://urlshortner.fastapicloud.dev/{shortCode}"
     }
 )
 
