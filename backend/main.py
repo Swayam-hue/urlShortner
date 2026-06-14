@@ -4,6 +4,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import hashlib as hash
 import psycopg2
+import redis
+
+r = redis.Redis.from_url("rediss://default:gQAAAAAAAhl-AAIgcDFmZTY5NmJhYjEwODM0MzBjODY3ZDk3MDAzODQ4ZTMzMg@live-goshawk-137598.upstash.io:6379",
+                         decode_responses = True)
 
 mydb = psycopg2.connect(
     host="aws-1-ap-northeast-1.pooler.supabase.com",
@@ -35,6 +39,10 @@ def encode_string_base62(input_string):
     short_code = encode(hash_int, BASE62)[:8]
     return short_code
 
+def id_counter():
+    id = r.incr("url_counter")
+    return encode(id, BASE62)
+
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
@@ -57,7 +65,7 @@ def shortURL(request : Request,
              longURL : str = Form(...)):
     url = longURL
 
-    mycursor.execute("select shortCode from urltable where longURL = %s",
+    mycursor.execute("select shortCode from urltable_2 where longURL = %s",
                      (url,))
     
     result = mycursor.fetchone()
@@ -74,8 +82,8 @@ def shortURL(request : Request,
 )
 
     
-    shortCode = encode_string_base62(url)
-    mycursor.execute("INSERT INTO urltable (longURL, shortCode) VALUES (%s, %s)",
+    shortCode = id_counter()
+    mycursor.execute("INSERT INTO urltable_2 (longURL, shortCode) VALUES (%s, %s)",
                      (url, shortCode))
     mydb.commit()
     return templates.TemplateResponse(
@@ -88,7 +96,7 @@ def shortURL(request : Request,
 
 @app.get("/{shortCode}")
 def getRedirectURL(shortCode : str):
-    mycursor.execute("select longURL from urltable where shortCode = %s",
+    mycursor.execute("select longURL from urltable_2 where shortCode = %s",
                      (shortCode,))
     result = mycursor.fetchone()
 
