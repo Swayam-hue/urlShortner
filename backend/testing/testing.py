@@ -4,11 +4,11 @@ from fastapi.responses import RedirectResponse
 import redis
 import urllib3 as check
 
-url = "https://docs.python.org/3/library/hashlib.html"
+url = "https://urlshortner.fastapicloud.dev/gb"
 r = redis.Redis.from_url("rediss://default:gQAAAAAAAhl-AAIgcDFmZTY5NmJhYjEwODM0MzBjODY3ZDk3MDAzODQ4ZTMzMg@live-goshawk-137598.upstash.io:6379",
                          decode_responses = True)
 
-print(r.ping())
+# print(r.ping())
     
 
 # hexValue = hash.sha256(url.encode()).hexdigest()
@@ -31,6 +31,13 @@ def encode_string_base62(input_string):
     hash_int = int(hexValue, 16)
     short_code = encode(hash_int, BASE62)[:8]
     return short_code
+
+def checkLength(url):
+    code = url[37:]
+    print(type(code))
+    print(code)
+
+checkLength(url)
 
 
 # print(encode_string_base62(url))

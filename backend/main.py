@@ -22,6 +22,17 @@ mycursor = mydb.cursor()
 
 BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+def existingShortURLCheck(url):
+    code = url[37:]
+    mycursor.execute("select 1 from urltable_2 where shortcode = %s",
+                     (code,))
+    result = mycursor.fetchone()
+
+    if result:
+        return True
+    else:
+        return False
+
 def encode(num, alphabet):
     base = len(alphabet)
     if num == 0:
@@ -65,6 +76,19 @@ def shortURL(request : Request,
              longURL : str = Form(...)):
     url = longURL
 
+    # If the shortURL is submitted again by the user
+    flag = existingShortURLCheck(url)
+    if flag == True:
+        code = url[37:]
+        return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+             "remark" : f"The link has already been shortened. Here is the same link : ",
+             "short_url": f"https://urlshortner.fastapicloud.dev/{code}"
+        }
+        )
+    
     mycursor.execute("select shortCode from urltable_2 where longURL = %s",
                      (url,))
     
@@ -77,6 +101,7 @@ def shortURL(request : Request,
         request=request,
         name="index.html",
         context={
+             "remark" : f"URL already exists. Here is the shortened link:",
              "short_url": f"https://urlshortner.fastapicloud.dev/{result[0]}"
         }
 )
@@ -90,6 +115,7 @@ def shortURL(request : Request,
     request=request,
     name="index.html",
     context={
+        "remark": f"Here is your shortened link",
         "short_url": f"https://urlshortner.fastapicloud.dev/{shortCode}"
     }
 )

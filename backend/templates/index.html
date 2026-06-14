@@ -47,13 +47,18 @@
     </form>
 
     {% if short_url %}
-        <div class="result">
-            <p>Short URL:</p>
-            <a href="{{ short_url }}">
-                {{ short_url }}
-            </a>
-        </div>
-    {% endif %}
+    <div class="result_text">
+
+        <p><strong>Remark:</strong></p>
+        <p>{{ remark }}</p>
+
+        <p><strong>Short URL:</strong></p>
+        <a href="{{ short_url }}" target="_blank">
+            {{ short_url }}
+        </a>
+
+    </div>
+{% endif %}
 
 </body>
 </html>
