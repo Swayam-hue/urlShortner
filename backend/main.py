@@ -111,6 +111,14 @@ def shortURL(request : Request,
     mycursor.execute("INSERT INTO urltable_2 (longURL, shortCode) VALUES (%s, %s)",
                      (url, shortCode))
     mydb.commit()
+
+    # Storing the mapping in Redis Cache
+    r.setex(
+    f"url:{shortCode}",
+    86400,
+    longURL
+)
+
     return templates.TemplateResponse(
     request=request,
     name="index.html",
@@ -122,6 +130,19 @@ def shortURL(request : Request,
 
 @app.get("/{shortCode}")
 def getRedirectURL(shortCode : str):
+
+    # Checking in Redis cache for the mapping
+    cached_url = r.get(f"url : {shortCode}")
+
+    if cached_url:
+        print("Cache hit")
+        return RedirectResponse(
+            url = cached_url,
+            status_code = 302
+        )
+    
+    print("Cache miss")
+        
     mycursor.execute("select longURL from urltable_2 where shortCode = %s",
                      (shortCode,))
     result = mycursor.fetchone()
@@ -132,7 +153,16 @@ def getRedirectURL(shortCode : str):
             detail="Short URL not found"
         )
     
+    longURL = result[0]
+    r.set(
+        f"url : {shortCode}",
+        longURL
+    )
+
+
     return RedirectResponse(
         url = result[0],
         status_code = 302
     )
+
+
