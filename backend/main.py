@@ -5,16 +5,20 @@ from pydantic import BaseModel
 import hashlib as hash
 import psycopg2
 import redis
+import os
+from dotenv import load_dotenv
 
-r = redis.Redis.from_url("rediss://default:gQAAAAAAAhl-AAIgcDFmZTY5NmJhYjEwODM0MzBjODY3ZDk3MDAzODQ4ZTMzMg@live-goshawk-137598.upstash.io:6379",
+load_dotenv()
+
+r = redis.Redis.from_url(os.getenv("REDIS_URL"),
                          decode_responses = True)
 
 mydb = psycopg2.connect(
-    host="aws-1-ap-northeast-1.pooler.supabase.com",
-    database="postgres",
-    user="postgres.dnobgpeivluejnlswmff",
-    password="@Swayamghosh2005",
-    port=6543,
+    host=os.getenv("DB_HOST"),
+    database=os.getenv("DB_NAME"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    port=os.getenv("DB_PORT"),
     sslmode="require"
 )
 
