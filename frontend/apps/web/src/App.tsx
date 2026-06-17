@@ -1,16 +1,13 @@
 import { useState } from "react";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "./components/ui/input";
-import { Spinner } from "@workspace/ui/components/spinner";
+
 
 type ShortenResponse = {
   remark: string;
   short_url: string;
 };
 
-type longerResponse = {
-  
-}
 export function App() {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<ShortenResponse | null>(null);
