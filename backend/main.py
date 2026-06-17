@@ -65,14 +65,10 @@ def id_counter():
     return encode(id, BASE62)
 
 app = FastAPI()
-
+print("CORS CONFIG LOADED")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://url-shortner-hizq.vercel.app",
-        "https://url-shortner-hizq-ifmnnt7gu-swayam-hues-projects.vercel.app"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
