@@ -7,8 +7,11 @@ import psycopg2
 import redis
 import os
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
+
+
 
 r = redis.Redis.from_url(os.getenv("REDIS_URL"),
                          decode_responses = True)
@@ -25,6 +28,9 @@ mydb = psycopg2.connect(
 mycursor = mydb.cursor()
 
 BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+class URLRequest(BaseModel):
+    longURL: str
 
 def existingShortURLCheck(url):
     code = url[37:]
@@ -60,38 +66,41 @@ def id_counter():
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 templates = Jinja2Templates(directory="templates")
 
 # class ABC(BaseModel):
 #     longURL: str
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def home(request: Request):
-    return templates.TemplateResponse(
-    request=request,
-    name="index.html",
-    context={
+    return {
         "short_url": None
     }
-)
 
-@app.post("/hash", response_class=HTMLResponse)
-def shortURL(request : Request,
-             longURL : str = Form(...)):
-    url = longURL
+
+@app.post("/hash")
+def shortURL(data: URLRequest):
+    url = data.longURL
 
     # If the shortURL is submitted again by the user
     flag = existingShortURLCheck(url)
     if flag == True:
         code = url[37:]
-        return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
+        return {
              "remark" : f"The link has already been shortened. Here is the same link : ",
              "short_url": f"https://urlshortner.fastapicloud.dev/{code}"
         }
-        )
+        
     
     mycursor.execute("select shortCode from urltable_2 where longURL = %s",
                      (url,))
@@ -101,14 +110,11 @@ def shortURL(request : Request,
     if result:
         print("URL already exists.")
 
-        return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
+        return {
              "remark" : f"URL already exists. Here is the shortened link:",
              "short_url": f"https://urlshortner.fastapicloud.dev/{result[0]}"
         }
-)
+
 
     
     shortCode = id_counter()
@@ -120,17 +126,14 @@ def shortURL(request : Request,
     r.setex(
     f"url:{shortCode}",
     86400,
-    longURL
+    url
 )
 
-    return templates.TemplateResponse(
-    request=request,
-    name="index.html",
-    context={
+    return {
         "remark": f"Here is your shortened link",
         "short_url": f"https://urlshortner.fastapicloud.dev/{shortCode}"
     }
-)
+
 
 @app.get("/{shortCode}")
 def getRedirectURL(shortCode : str):
