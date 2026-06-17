@@ -18,7 +18,7 @@ export function App() {
       setLoading(true);
 
       const response = await fetch(
-        "https://url-shortner-hizq.vercel.app/",
+        "https://urlshortner.fastapicloud.dev/hash",
         {
           method: "POST",
           headers: {
