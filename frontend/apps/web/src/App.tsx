@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Button } from "@workspace/ui/components/button";
 import { Input } from "./components/ui/input";
-
+import { StatefulButton } from "@/components/ui/stateful-button";
 
 type ShortenResponse = {
   remark: string;
@@ -11,12 +10,9 @@ type ShortenResponse = {
 export function App() {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<ShortenResponse | null>(null);
-  const [loading, setLoading] = useState(false);
 
   async function shortenURL() {
     try {
-      setLoading(true);
-
       const response = await fetch(
         "https://urlshortner.fastapicloud.dev/hash",
         {
@@ -43,8 +39,6 @@ export function App() {
         remark: "Something went wrong.",
         short_url: "",
       });
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -67,13 +61,13 @@ export function App() {
     className="h-12 flex-1"
   />
 
-  <Button
+  <StatefulButton
     onClick={shortenURL}
-    disabled={loading || !url}
+    disabled={!url}
     className="h-12 px-4"
   >
-    {loading ? "Shortening..." : "Shorten"}
-  </Button>
+    Shorten
+  </StatefulButton>
 </div>
 
         {result && (
