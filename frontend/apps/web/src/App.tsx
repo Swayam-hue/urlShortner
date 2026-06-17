@@ -18,7 +18,7 @@ export function App() {
       setLoading(true);
 
       const response = await fetch(
-        "http://127.0.0.1:8000/hash",
+        "https://url-shortner-hizq.vercel.app/",
         {
           method: "POST",
           headers: {
