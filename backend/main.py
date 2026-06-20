@@ -1,22 +1,25 @@
-from fastapi import FastAPI, HTTPException, Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-import hashlib as hash
+from psycopg2.pool import SimpleConnectionPool
+from fastapi.middleware.cors import CORSMiddleware
+
 import psycopg2
 import redis
+import hashlib as hash
 import os
 from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
+r = redis.Redis.from_url(
+    os.getenv("REDIS_URL"),
+    decode_responses=True
+)
 
-
-r = redis.Redis.from_url(os.getenv("REDIS_URL"),
-                         decode_responses = True)
-
-mydb = psycopg2.connect(
+db_pool = SimpleConnectionPool(
+    minconn=1,
+    maxconn=20,
     host=os.getenv("DB_HOST"),
     database=os.getenv("DB_NAME"),
     user=os.getenv("DB_USER"),
@@ -25,149 +28,217 @@ mydb = psycopg2.connect(
     sslmode="require"
 )
 
-mycursor = mydb.cursor()
-
-BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-class URLRequest(BaseModel):
-    longURL: str
-
-def existingShortURLCheck(url):
-    code = url[37:]
-    mycursor.execute("select 1 from urltable_2 where shortcode = %s",
-                     (code,))
-    result = mycursor.fetchone()
-
-    if result:
-        return True
-    else:
-        return False
-
-def encode(num, alphabet):
-    base = len(alphabet)
-    if num == 0:
-        return alphabet[0]
-    encoded = ""
-    while num > 0:
-        num, rem = divmod(num, base)
-        encoded = alphabet[rem] + encoded
-    return encoded
-
-def encode_string_base62(input_string):
-    # Hash the string to get a large integer
-    hexValue = hash.sha256(input_string.encode()).hexdigest()
-    hash_int = int(hexValue, 16)
-    short_code = encode(hash_int, BASE62)[:8]
-    return short_code
-
-def id_counter():
-    id = r.incr("url_counter")
-    return encode(id, BASE62)
-
 app = FastAPI()
-print("CORS CONFIG LOADED")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://url-shortner-hizq-42fjr9h21-swayam-hues-projects.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-templates = Jinja2Templates(directory="templates")
+class URLRequest(BaseModel):
+    longURL: str
 
-# class ABC(BaseModel):
-#     longURL: str
+BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+def encode(num, alphabet):
+    base = len(alphabet)
+
+    if num == 0:
+        return alphabet[0]
+
+    encoded = ""
+
+    while num > 0:
+        num, rem = divmod(num, base)
+        encoded = alphabet[rem] + encoded
+
+    return encoded
+
+
+def id_counter():
+    value = r.incr("url_counter")
+    return encode(value, BASE62)
+
+
+def get_connection():
+    return db_pool.getconn()
+
+
+def release_connection(conn):
+    db_pool.putconn(conn)
+
+
+def existing_short_url_check(url: str):
+
+    if not url.startswith(
+        "https://urlshortner.fastapicloud.dev/"
+    ):
+        return False
+
+    code = url.split("/")[-1]
+
+    conn = get_connection()
+
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT 1
+            FROM urltable_2
+            WHERE shortcode = %s
+            """,
+            (code,)
+        )
+
+        return cur.fetchone() is not None
+
+    finally:
+        cur.close()
+        release_connection(conn)
+
 
 @app.get("/")
-def home(request: Request):
-    return {
-        "short_url": None
-    }
+def home():
+    return {"status": "alive"}
 
 
 @app.post("/hash")
-def shortURL(data: URLRequest):
+def short_url(data: URLRequest):
+
     url = data.longURL
 
-    # If the shortURL is submitted again by the user
-    flag = existingShortURLCheck(url)
-    if flag == True:
-        code = url[37:]
+    conn = get_connection()
+
+    try:
+        cur = conn.cursor()
+
+        # Already a shortened URL?
+        if existing_short_url_check(url):
+
+            code = url.split("/")[-1]
+
+            return {
+                "remark": "Already shortened",
+                "short_url": url
+            }
+
+        # Check if original URL exists
+        cur.execute(
+            """
+            SELECT shortcode
+            FROM urltable_2
+            WHERE longURL = %s
+            """,
+            (url,)
+        )
+
+        result = cur.fetchone()
+
+        if result:
+
+            return {
+                "remark": "URL already exists",
+                "short_url":
+                f"https://urlshortner.fastapicloud.dev/{result[0]}"
+            }
+
+        short_code = id_counter()
+
+        cur.execute(
+            """
+            INSERT INTO urltable_2
+            (longURL, shortcode)
+            VALUES (%s,%s)
+            """,
+            (url, short_code)
+        )
+
+        conn.commit()
+
+        r.setex(
+            f"url:{short_code}",
+            86400,
+            url
+        )
+
         return {
-             "remark" : f"The link has already been shortened. Here is the same link : ",
-             "short_url": f"https://urlshortner.fastapicloud.dev/{code}"
-        }
-        
-    
-    mycursor.execute("select shortCode from urltable_2 where longURL = %s",
-                     (url,))
-    
-    result = mycursor.fetchone()
-
-    if result:
-        print("URL already exists.")
-
-        return {
-             "remark" : f"URL already exists. Here is the shortened link:",
-             "short_url": f"https://urlshortner.fastapicloud.dev/{result[0]}"
+            "remark": "Short URL created",
+            "short_url":
+            f"https://urlshortner.fastapicloud.dev/{short_code}"
         }
 
+    except Exception as e:
 
-    
-    shortCode = id_counter()
-    mycursor.execute("INSERT INTO urltable_2 (longURL, shortCode) VALUES (%s, %s)",
-                     (url, shortCode))
-    mydb.commit()
+        conn.rollback()
 
-    # Storing the mapping in Redis Cache
-    r.setex(
-    f"url:{shortCode}",
-    86400,
-    url
-)
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
-    return {
-        "remark": f"Here is your shortened link",
-        "short_url": f"https://urlshortner.fastapicloud.dev/{shortCode}"
-    }
+    finally:
+
+        cur.close()
+        release_connection(conn)
 
 
 @app.get("/{shortCode}")
-def getRedirectURL(shortCode : str):
+def redirect_url(shortCode: str):
 
-    # Checking in Redis cache for the mapping
-    cached_url = r.get(f"url : {shortCode}")
+    cached_url = r.get(f"url:{shortCode}")
 
     if cached_url:
-        print("Cache hit")
+
         return RedirectResponse(
-            url = cached_url,
-            status_code = 302
+            url=cached_url,
+            status_code=302
         )
-    
-    print("Cache miss")
-        
-    mycursor.execute("select longURL from urltable_2 where shortCode = %s",
-                     (shortCode,))
-    result = mycursor.fetchone()
 
-    if result is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Short URL not found"
+    conn = get_connection()
+
+    try:
+
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT longURL
+            FROM urltable_2
+            WHERE shortcode = %s
+            """,
+            (shortCode,)
         )
-    
-    longURL = result[0]
-    r.set(
-        f"url : {shortCode}",
-        longURL
-    )
 
+        result = cur.fetchone()
 
-    return RedirectResponse(
-        url = result[0],
-        status_code = 302
-    )
+        if result is None:
 
+            raise HTTPException(
+                status_code=404,
+                detail="Short URL not found"
+            )
 
+        long_url = result[0]
+
+        r.setex(
+            f"url:{shortCode}",
+            86400,
+            long_url
+        )
+
+        return RedirectResponse(
+            url=long_url,
+            status_code=302
+        )
+
+    finally:
+
+        cur.close()
+        release_connection(conn)
