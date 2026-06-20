@@ -193,6 +193,10 @@ def short_url(data: URLRequest):
 def redirect_url(shortCode: str):
 
     cached_url = r.get(f"url:{shortCode}")
+    if cached_url:
+        print("CACHE HIT")
+    else:
+        print("CACHE MISS")
 
     if cached_url:
 
